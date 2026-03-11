@@ -200,3 +200,94 @@ p {
     width: calc(100% - 4rem);
   }
 }
+document.querySelectorAll(".scene-image-wrapper, .scene-image-wrapper-2").forEach((wrapper) => {
+  wrapper.style.position = "relative"; 
+  const canvas = document.createElement("canvas");
+  canvas.className = "hero-canvas";
+  canvas.style.position = "absolute";
+  canvas.style.bottom = "0";
+  canvas.style.left = "0";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.pointerEvents = "none";
+  canvas.style.zIndex = "10";
+  wrapper.appendChild(canvas);
+
+  const scene = new Scene();
+  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const renderer = new WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: false
+  });
+
+  const geometry = new PlaneGeometry(2, 2);
+  const material = new ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms: {
+      uProgress: { value: 0 },
+      uResolution: { value: new Vector2(wrapper.offsetWidth, wrapper.offsetHeight) },
+      uColor: { value: new Vector3(rgb.r, rgb.g, rgb.b) },
+      uSpread: { value: CONFIG.spread }
+    },
+    transparent: true
+  });
+  
+  const mesh = new Mesh(geometry, material);
+  scene.add(mesh);
+
+  function resize() {
+    const width = wrapper.offsetWidth;
+    const height = wrapper.offsetHeight;
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    material.uniforms.uResolution.value.set(width, height);
+  }
+
+  resize();
+  window.addEventListener("resize", resize);
+
+  let scrollProgress = 0;
+  function animate() {
+    material.uniforms.uProgress.value = scrollProgress;
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  const container = wrapper.closest(".container-scene, .container-scene1, .scene-container2, .scene2, .scene3, .scene4, .scene5, .scene6") || wrapper;
+
+  ScrollTrigger.create({
+    trigger: container,
+    start: "top top",
+    end: "bottom bottom",
+    onUpdate: (self) => { scrollProgress = Math.min(self.progress * CONFIG.speed, 1.1); }
+  });
+
+  const subtitle = container.querySelector(".scene-subtitle");
+  if (subtitle && !subtitle.classList.contains('split-applied')) {
+    subtitle.classList.add('split-applied');
+    const split = new SplitText(subtitle, { type: "words" });
+    const words = split.words;
+    gsapWithCSS.set(words, { opacity: 0 });
+    
+    ScrollTrigger.create({
+      trigger: subtitle,
+      start: "top 80%",
+      end: "bottom 30%",
+      onUpdate: (self2) => {
+        const progress = self2.progress;
+        const totalWords = words.length;
+        words.forEach((word, index) => {
+          const wordProgress = index / totalWords;
+          const nextWordProgress = (index + 1) / totalWords;
+          let opacity = 0;
+          if (progress >= nextWordProgress) opacity = 1;
+          else if (progress >= wordProgress) opacity = (progress - wordProgress) / (nextWordProgress - wordProgress);
+          gsapWithCSS.to(word, { opacity: opacity, duration: 0.1, overwrite: true });
+        });
+      }
+    });
+  }
+});
