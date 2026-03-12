@@ -4063,27 +4063,40 @@ void main() {
   }
 `,lenis=new Lenis;function raf(r){lenis.raf(r),ScrollTrigger.update(),requestAnimationFrame(raf)}requestAnimationFrame(raf),lenis.on("scroll",ScrollTrigger.update);
 document.addEventListener('DOMContentLoaded', () => {
-    // Встроенные JS-стили для 3D
+    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
+        return;
+    }
+    gsap.registerPlugin(ScrollTrigger);
+
     const style = document.createElement('style');
     style.innerHTML = `
-        .scene-3d-wrapper {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
+        /* Важно: Webflow body может скрывать 3D через overflow-x: hidden. Разрешаем 3D перспективы */
+        body {
             perspective: 1000px;
-            transform-style: preserve-3d;
         }
+        
+        /* Это наш аналог .card из 8-й папки */
+        .scene-3d-wrapper {
+            position: sticky !important;
+            top: 0;
+            width: 100vw;
+            height: 100vh; /* Занимает весь экран при залипании */
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+
+        /* Это наш аналог .card-inner из 8-й папки */
         .scene-3d-inner {
             position: relative;
+            display: flex;
+            flex-direction: column;
             width: 100%;
             height: 100%;
-            transform-origin: 50% 100%;
+            transform-origin: 50% 100%; /* Вращается относительно низа, как в папке 8 */
             will-change: transform;
-            overflow: hidden;
-            display: flex;
-            align-items: center; 
-            justify-content: center;
+            overflow: hidden !important; 
         }
+
         .scene-3d-overlay {
             content: "";
             position: absolute;
@@ -4103,7 +4116,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const scenes = document.querySelectorAll('.container-scene, .container-scene1, .scene-container2, .scene2, .scene3, .scene4, .scene5, .scene6');
     const sceneWrappers = [];
 
-    // Динамически оборачиваем каждую секцию Webflow
     scenes.forEach((scene, index) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'scene-3d-wrapper';
@@ -4112,12 +4124,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const inner = document.createElement('div');
         inner.className = 'scene-3d-inner';
         
-        // Переносим фон с секции на 3D-обертку, чтобы при вращении не было дыр
         const computedBg = window.getComputedStyle(scene).backgroundColor;
         if (computedBg && computedBg !== 'rgba(0, 0, 0, 0)' && computedBg !== 'transparent') {
             inner.style.backgroundColor = computedBg;
         } else {
-            inner.style.backgroundColor = '#F6F6F4'; // Дефолтный фон
+            inner.style.backgroundColor = '#F6F6F4';
         }
 
         const overlay = document.createElement('div');
@@ -4128,14 +4139,15 @@ document.addEventListener('DOMContentLoaded', () => {
         inner.appendChild(scene);
         inner.appendChild(overlay);
 
+        // Убираем у оригинальных сцен Webflow свойства, которые могут мешать 3D
         scene.style.width = '100%';
         scene.style.height = '100%';
+        scene.style.position = 'relative';
 
         wrapper.innerNode = inner;
         wrapper.overlayNode = overlay;
         sceneWrappers.push(wrapper);
 
-        // --- ВОССТАНАВЛИВАЕМ АНИМАЦИЮ ТЕКСТА ---
         const subtitle = scene.querySelector(".scene-subtitle");
         if (subtitle && !subtitle.classList.contains('split-applied')) {
             subtitle.classList.add('split-applied');
@@ -4163,13 +4175,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- ЛОГИКА 3D СКЛАДЫВАНИЯ ---
     sceneWrappers.forEach((wrapper, index) => {
         if (index < sceneWrappers.length - 1) {
             const inner = wrapper.innerNode;
             const overlay = wrapper.overlayNode;
             const nextWrapper = sceneWrappers[index + 1];
 
+            // Точная копия анимации из 8-й папки
             gsapWithCSS.fromTo(
                 inner,
                 { y: '0%', z: 0, rotationX: 0 },
