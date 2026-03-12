@@ -4064,151 +4064,55 @@ void main() {
 `,lenis=new Lenis;function raf(r){lenis.raf(r),ScrollTrigger.update(),requestAnimationFrame(raf)}requestAnimationFrame(raf),lenis.on("scroll",ScrollTrigger.update);
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
+        console.error('GSAP or ScrollTrigger is not loaded!');
         return;
     }
     gsap.registerPlugin(ScrollTrigger);
 
-    const style = document.createElement('style');
-    style.innerHTML = `
-        /* Важно: Webflow body может скрывать 3D через overflow-x: hidden. Разрешаем 3D перспективы */
-        body {
-            perspective: 1000px;
-        }
-        
-        /* Это наш аналог .card из 8-й папки */
-        .scene-3d-wrapper {
-            position: sticky !important;
-            top: 0;
-            width: 100vw;
-            height: 100vh; /* Занимает весь экран при залипании */
-            transform-style: preserve-3d;
-            perspective: 1000px;
-        }
-
-        /* Это наш аналог .card-inner из 8-й папки */
-        .scene-3d-inner {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 100%;
-            transform-origin: 50% 100%; /* Вращается относительно низа, как в папке 8 */
-            will-change: transform;
-            overflow: hidden !important; 
-        }
-
-        .scene-3d-overlay {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            z-index: 9999;
-            width: 100%;
-            height: 100%;
-            background-color: #000000;
-            opacity: 0;
-            will-change: opacity;
-        }
-    `;
-    document.head.appendChild(style);
-
     const scenes = document.querySelectorAll('.container-scene, .container-scene1, .scene-container2, .scene2, .scene3, .scene4, .scene5, .scene6');
-    const sceneWrappers = [];
 
-    scenes.forEach((scene, index) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'scene-3d-wrapper';
-        wrapper.style.zIndex = scenes.length - index;
-        
-        const inner = document.createElement('div');
-        inner.className = 'scene-3d-inner';
-        
-        const computedBg = window.getComputedStyle(scene).backgroundColor;
-        if (computedBg && computedBg !== 'rgba(0, 0, 0, 0)' && computedBg !== 'transparent') {
-            inner.style.backgroundColor = computedBg;
-        } else {
-            inner.style.backgroundColor = '#F6F6F4';
-        }
-
-        const overlay = document.createElement('div');
-        overlay.className = 'scene-3d-overlay';
-
-        scene.parentNode.insertBefore(wrapper, scene);
-        wrapper.appendChild(inner);
-        inner.appendChild(scene);
-        inner.appendChild(overlay);
-
-        // Убираем у оригинальных сцен Webflow свойства, которые могут мешать 3D
-        scene.style.width = '100%';
-        scene.style.height = '100%';
-        scene.style.position = 'relative';
-
-        wrapper.innerNode = inner;
-        wrapper.overlayNode = overlay;
-        sceneWrappers.push(wrapper);
-
+    scenes.forEach((scene) => {
+        // --- АНИМАЦИЯ ПОЯВЛЕНИЯ ТЕКСТА ---
         const subtitle = scene.querySelector(".scene-subtitle");
+        
         if (subtitle && !subtitle.classList.contains('split-applied')) {
             subtitle.classList.add('split-applied');
+            
+            // Разбиваем текст на слова
             const split = new SplitText(subtitle, { type: "words" });
             const words = split.words;
+            
+            // Изначально прячем слова
             gsapWithCSS.set(words, { opacity: 0 });
             
+            // Привязываем появление слов к скроллу конкретной секции
             ScrollTrigger.create({
-                trigger: subtitle,
-                start: "top 80%",
-                end: "bottom 30%",
-                onUpdate: (self2) => {
-                    const progress = self2.progress;
+                trigger: scene, // Триггер - это сама секция, так как текст короткий
+                start: "top 60%", // Начинаем, когда верх секции дойдет почти до середины экрана
+                end: "top 10%",   // Заканчиваем, когда секция почти полностью вылезет
+                scrub: true,
+                onUpdate: (self) => {
+                    const progress = self.progress;
                     const totalWords = words.length;
+                    
                     words.forEach((word, wIndex) => {
                         const wordProgress = wIndex / totalWords;
                         const nextWordProgress = (wIndex + 1) / totalWords;
+                        
                         let opacity = 0;
-                        if (progress >= nextWordProgress) opacity = 1;
-                        else if (progress >= wordProgress) opacity = (progress - wordProgress) / (nextWordProgress - wordProgress);
-                        gsapWithCSS.to(word, { opacity: opacity, duration: 0.1, overwrite: true });
+                        if (progress >= nextWordProgress) {
+                            opacity = 1;
+                        } else if (progress >= wordProgress) {
+                            opacity = (progress - wordProgress) / (nextWordProgress - wordProgress);
+                        }
+                        
+                        // Анимируем прозрачность
+                        gsapWithCSS.set(word, { opacity: opacity });
                     });
                 }
             });
         }
     });
 
-    sceneWrappers.forEach((wrapper, index) => {
-        if (index < sceneWrappers.length - 1) {
-            const inner = wrapper.innerNode;
-            const overlay = wrapper.overlayNode;
-            const nextWrapper = sceneWrappers[index + 1];
-
-            // Точная копия анимации из 8-й папки
-            gsapWithCSS.fromTo(
-                inner,
-                { y: '0%', z: 0, rotationX: 0 },
-                {
-                    y: '-50%',
-                    z: -250,
-                    rotationX: 45,
-                    scrollTrigger: {
-                        trigger: nextWrapper,
-                        start: 'top 85%',
-                        end: 'top -75%',
-                        scrub: true,
-                        pin: wrapper,
-                        pinSpacing: false,
-                    },
-                }
-            );
-
-            gsapWithCSS.to(overlay, {
-                opacity: 1,
-                scrollTrigger: {
-                    trigger: nextWrapper,
-                    start: 'top 75%',
-                    end: 'top -25%',
-                    scrub: true,
-                },
-            });
-        }
-    });
+    console.log('Text Split Animation initialized successfully!');
 });
