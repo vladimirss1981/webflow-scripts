@@ -4061,96 +4061,142 @@ void main() {
     
     gl_FragColor = vec4(uColor, alpha);
   }
-`,lenis=new Lenis;function raf(r){lenis.raf(r),ScrollTrigger.update(),requestAnimationFrame(raf)}requestAnimationFrame(raf),lenis.on("scroll",ScrollTrigger.update);document.querySelectorAll(".container-scene, .container-scene1, .scene-container2, .scene2, .scene3, .scene4, .scene5, .scene6").forEach((wrapper) => {
-  // Делаем секцию относительной, чтобы невидимый холст растянулся ровно по ней
-  wrapper.style.position = "relative"; 
-  const canvas = document.createElement("canvas");
-  canvas.className = "hero-canvas";
-  canvas.style.position = "absolute";
-  canvas.style.top = "0"; // Теперь канвас начинается сверху всей секции
-  canvas.style.left = "0";
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
-  canvas.style.pointerEvents = "none";
-  canvas.style.zIndex = "10";
-  wrapper.appendChild(canvas);
+`,lenis=new Lenis;function raf(r){lenis.raf(r),ScrollTrigger.update(),requestAnimationFrame(raf)}requestAnimationFrame(raf),lenis.on("scroll",ScrollTrigger.update);
+document.addEventListener('DOMContentLoaded', () => {
+    // Встроенные JS-стили для 3D
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .scene-3d-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+        }
+        .scene-3d-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-origin: 50% 100%;
+            will-change: transform;
+            overflow: hidden;
+            display: flex;
+            align-items: center; 
+            justify-content: center;
+        }
+        .scene-3d-overlay {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            opacity: 0;
+            will-change: opacity;
+        }
+    `;
+    document.head.appendChild(style);
 
-  const scene = new Scene();
-  const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const renderer = new WebGLRenderer({
-    canvas,
-    alpha: true,
-    antialias: false
-  });
+    const scenes = document.querySelectorAll('.container-scene, .container-scene1, .scene-container2, .scene2, .scene3, .scene4, .scene5, .scene6');
+    const sceneWrappers = [];
 
-  const geometry = new PlaneGeometry(2, 2);
-  const material = new ShaderMaterial({
-    vertexShader,
-    fragmentShader,
-    uniforms: {
-      uProgress: { value: 0 },
-      uResolution: { value: new Vector2(wrapper.offsetWidth, wrapper.offsetHeight) },
-      uColor: { value: new Vector3(rgb.r, rgb.g, rgb.b) },
-      uSpread: { value: CONFIG.spread }
-    },
-    transparent: true
-  });
-  
-  const mesh = new Mesh(geometry, material);
-  scene.add(mesh);
+    // Динамически оборачиваем каждую секцию Webflow
+    scenes.forEach((scene, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'scene-3d-wrapper';
+        wrapper.style.zIndex = scenes.length - index;
+        
+        const inner = document.createElement('div');
+        inner.className = 'scene-3d-inner';
+        
+        // Переносим фон с секции на 3D-обертку, чтобы при вращении не было дыр
+        const computedBg = window.getComputedStyle(scene).backgroundColor;
+        if (computedBg && computedBg !== 'rgba(0, 0, 0, 0)' && computedBg !== 'transparent') {
+            inner.style.backgroundColor = computedBg;
+        } else {
+            inner.style.backgroundColor = '#F6F6F4'; // Дефолтный фон
+        }
 
-  function resize() {
-    const width = wrapper.offsetWidth;
-    const height = wrapper.offsetHeight;
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    material.uniforms.uResolution.value.set(width, height);
-  }
+        const overlay = document.createElement('div');
+        overlay.className = 'scene-3d-overlay';
 
-  resize();
-  window.addEventListener("resize", resize);
+        scene.parentNode.insertBefore(wrapper, scene);
+        wrapper.appendChild(inner);
+        inner.appendChild(scene);
+        inner.appendChild(overlay);
 
-  let scrollProgress = 0;
-  function animate() {
-    material.uniforms.uProgress.value = scrollProgress;
-    renderer.render(scene, camera);
-    requestAnimationFrame(animate);
-  }
-  animate();
+        scene.style.width = '100%';
+        scene.style.height = '100%';
 
-  // Родительский контейнер - это уже и есть сам wrapper!
-  const container = wrapper;
+        wrapper.innerNode = inner;
+        wrapper.overlayNode = overlay;
+        sceneWrappers.push(wrapper);
 
-  ScrollTrigger.create({
-    trigger: container,
-    start: "top top",
-    end: "bottom bottom",
-    onUpdate: (self) => { scrollProgress = Math.min(self.progress * CONFIG.speed, 1.1); }
-  });
-
-  const subtitle = container.querySelector(".scene-subtitle");
-  if (subtitle && !subtitle.classList.contains('split-applied')) {
-    subtitle.classList.add('split-applied');
-    const split = new SplitText(subtitle, { type: "words" });
-    const words = split.words;
-    gsapWithCSS.set(words, { opacity: 0 });
-    
-    ScrollTrigger.create({
-      trigger: subtitle,
-      start: "top 80%",
-      end: "bottom 30%",
-      onUpdate: (self2) => {
-        const progress = self2.progress;
-        const totalWords = words.length;
-        words.forEach((word, index) => {
-          const wordProgress = index / totalWords;
-          const nextWordProgress = (index + 1) / totalWords;
-          let opacity = 0;
-          if (progress >= nextWordProgress) opacity = 1;
-          else if (progress >= wordProgress) opacity = (progress - wordProgress) / (nextWordProgress - wordProgress);
-          gsapWithCSS.to(word, { opacity: opacity, duration: 0.1, overwrite: true });
-        });
-      }
+        // --- ВОССТАНАВЛИВАЕМ АНИМАЦИЮ ТЕКСТА ---
+        const subtitle = scene.querySelector(".scene-subtitle");
+        if (subtitle && !subtitle.classList.contains('split-applied')) {
+            subtitle.classList.add('split-applied');
+            const split = new SplitText(subtitle, { type: "words" });
+            const words = split.words;
+            gsapWithCSS.set(words, { opacity: 0 });
+            
+            ScrollTrigger.create({
+                trigger: subtitle,
+                start: "top 80%",
+                end: "bottom 30%",
+                onUpdate: (self2) => {
+                    const progress = self2.progress;
+                    const totalWords = words.length;
+                    words.forEach((word, wIndex) => {
+                        const wordProgress = wIndex / totalWords;
+                        const nextWordProgress = (wIndex + 1) / totalWords;
+                        let opacity = 0;
+                        if (progress >= nextWordProgress) opacity = 1;
+                        else if (progress >= wordProgress) opacity = (progress - wordProgress) / (nextWordProgress - wordProgress);
+                        gsapWithCSS.to(word, { opacity: opacity, duration: 0.1, overwrite: true });
+                    });
+                }
+            });
+        }
     });
-  }
+
+    // --- ЛОГИКА 3D СКЛАДЫВАНИЯ ---
+    sceneWrappers.forEach((wrapper, index) => {
+        if (index < sceneWrappers.length - 1) {
+            const inner = wrapper.innerNode;
+            const overlay = wrapper.overlayNode;
+            const nextWrapper = sceneWrappers[index + 1];
+
+            gsapWithCSS.fromTo(
+                inner,
+                { y: '0%', z: 0, rotationX: 0 },
+                {
+                    y: '-50%',
+                    z: -250,
+                    rotationX: 45,
+                    scrollTrigger: {
+                        trigger: nextWrapper,
+                        start: 'top 85%',
+                        end: 'top -75%',
+                        scrub: true,
+                        pin: wrapper,
+                        pinSpacing: false,
+                    },
+                }
+            );
+
+            gsapWithCSS.to(overlay, {
+                opacity: 1,
+                scrollTrigger: {
+                    trigger: nextWrapper,
+                    start: 'top 75%',
+                    end: 'top -25%',
+                    scrub: true,
+                },
+            });
+        }
+    });
 });
