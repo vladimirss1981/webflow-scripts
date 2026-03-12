@@ -4061,12 +4061,13 @@ void main() {
     
     gl_FragColor = vec4(uColor, alpha);
   }
-`,lenis=new Lenis;function raf(r){lenis.raf(r),ScrollTrigger.update(),requestAnimationFrame(raf)}requestAnimationFrame(raf),lenis.on("scroll",ScrollTrigger.update);document.querySelectorAll(".scene-image-wrapper, .scene-image-wrapper-2").forEach((wrapper) => {
+`,lenis=new Lenis;function raf(r){lenis.raf(r),ScrollTrigger.update(),requestAnimationFrame(raf)}requestAnimationFrame(raf),lenis.on("scroll",ScrollTrigger.update);document.querySelectorAll(".container-scene, .container-scene1, .scene-container2, .scene2, .scene3, .scene4, .scene5, .scene6").forEach((wrapper) => {
+  // Делаем секцию относительной, чтобы невидимый холст растянулся ровно по ней
   wrapper.style.position = "relative"; 
   const canvas = document.createElement("canvas");
   canvas.className = "hero-canvas";
   canvas.style.position = "absolute";
-  canvas.style.bottom = "0";
+  canvas.style.top = "0"; // Теперь канвас начинается сверху всей секции
   canvas.style.left = "0";
   canvas.style.width = "100%";
   canvas.style.height = "100%";
@@ -4117,7 +4118,8 @@ void main() {
   }
   animate();
 
-  const container = wrapper.closest(".container-scene, .container-scene1, .scene-container2, .scene2, .scene3, .scene4, .scene5, .scene6") || wrapper;
+  // Родительский контейнер - это уже и есть сам wrapper!
+  const container = wrapper;
 
   ScrollTrigger.create({
     trigger: container,
